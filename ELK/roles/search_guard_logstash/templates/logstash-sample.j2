@@ -1,0 +1,21 @@
+# Sample Logstash configuration for creating a simple
+# Beats -> Logstash -> Elasticsearch pipeline.
+
+input {
+  beats {
+    port => 5044
+  }
+}
+
+output {
+  elasticsearch {
+    hosts => ["https://{{groups['elasticsearch'][0]}}:9200"]
+    ssl => true
+    ssl_certificate_verification => true
+    truststore => "{{elk.APP_DIR}}/logstash/config/CN=IP-{{groups['elasticsearch'][0]}}-keystore.jks"
+    index => "%{[@metadata][beat]}-%{[@metadata][version]}-%{+YYYY.MM.dd}"
+    truststore_password => "{{keystore_pwd.stdout}}" # keystore and private key password
+    user => "logstash"
+    password => "logstash"
+  }
+}

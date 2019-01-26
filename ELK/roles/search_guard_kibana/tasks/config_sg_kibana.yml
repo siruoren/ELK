@@ -1,0 +1,61 @@
+---
+- name: install search_guard kibana plugins
+  block:
+    - name: clean  search_guard  package
+      shell: |
+         find  -maxdepth 1 -name "search-guard*.zip" -exec rm -rf {} +
+      args:
+        chdir: /tmp/
+
+    - name: download  search_guard  kibana plugins
+      shell:
+        "wget  -O search-guard-kibana.zip {{item}}"
+      args:
+        chdir: "/tmp/"
+      with_items:
+          - "{{search_guard_kibana_url}}"
+
+    - name: stop kibana service
+      shell: |
+        ps -ef |grep node/bin/node|grep -v grep|awk '{print $2}'|xargs kill -9
+      ignore_errors: true
+    
+
+    - name: check kibana-plugin list
+      shell: |
+        ./bin/kibana-plugin  list |grep searchguard 
+      args:
+          chdir: "{{elk.APP_DIR}}/kibana/"
+      register: kb_sg_check
+      ignore_errors: true
+
+    
+
+    - name: remove search guard kibana plugins
+      shell: |
+          ./bin/kibana-plugin remove searchguard
+      ignore_errors: true
+      args:
+          chdir: "{{elk.APP_DIR}}/kibana/"
+      when: kb_sg_check.rc == 0
+
+    - name: install search guard kibana plugins
+      shell: |
+          ./bin/kibana-plugin install  file:///tmp/search-guard-kibana.zip
+      args:
+          chdir: "{{elk.APP_DIR}}/kibana"
+
+    - name: config kibana config files
+      lineinfile:
+        path: "{{elk.APP_DIR}}/kibana/config/kibana.yml"
+        regexp: "^{{item.key}}"
+        line: "{{item.key}}: {{item.value}}"
+      with_items:
+          - "{{kibana_sg_config}}"
+    
+
+    - name: start  kibana service
+      shell: |
+        set -m;./bin/kibana &
+      args:
+        chdir: "{{elk.APP_DIR}}/kibana"

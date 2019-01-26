@@ -1,0 +1,37 @@
+- name: prepare search-guard-certificates
+  block: 
+    - name: clean  search-guard-certificates directory
+      shell: |
+         rm -rf search-guard-certificates
+      args:
+        chdir: /tmp/
+      run_once: true
+    
+    
+    - name: get search-guard-certificates filename
+      shell: |
+        ls -alt|grep search-guard-certificates|awk '{print$9}'
+      args:
+        chdir: /tmp/
+      register: search_guard_certificates
+    
+    
+    - name: unarchive search-guard-certificates package
+      unarchive:
+        src: "/tmp/{{search_guard_certificates.stdout_lines[0]}}"
+        dest: /tmp/
+        mode: 0755
+      run_once: true
+    
+    - name: get keystore and private key password
+      shell: |
+        cat README.txt |grep 'keystore and private key password'|grep {{groups['elasticsearch'][0]}}|awk -F':' '{print $2}'|sed 's/ //g'
+      args:
+        chdir: /tmp/search-guard-certificates/
+      register: keystore_pwd
+  connection: local
+
+- import_tasks: config_sg_logstash.yml
+  when: inventory_hostname in groups['logstash']
+  become: yes
+  become_user: "{{manager_user}}"

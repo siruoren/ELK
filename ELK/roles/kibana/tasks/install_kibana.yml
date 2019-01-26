@@ -1,0 +1,59 @@
+---
+- name: stop kibana service
+  shell: |
+    ps -ef |grep node/bin/node|grep -v grep|awk '{print $2}'|xargs kill -9
+  ignore_errors: true
+
+- name: rm kibana directory
+  file:
+    path: "{{item}}"
+    state: absent
+  with_items: 
+      - "{{elk.APP_DIR}}/kibana"
+      - "{{elk.APP_DIR}}/kibana-{{elk.version}}-linux-x86_64.tar.gz"
+
+- name: download kibana package
+  shell:
+    "wget {{kibana_url}}/kibana-{{elk.version}}-linux-x86_64.tar.gz"
+  args:
+    chdir: "{{elk.APP_DIR}}/"
+
+
+- name: unarchive kibana package
+  unarchive:
+    src: "{{elk.APP_DIR}}/kibana-{{elk.version}}-linux-x86_64.tar.gz"
+    dest: "{{elk.APP_DIR}}/"
+    remote_src: yes
+    mode: 0755
+
+- name: rename kibana directory
+  shell: |
+    mv kibana-{{elk.version}}-linux-x86_64   kibana
+  args:
+    chdir: "{{elk.APP_DIR}}/"
+
+
+
+- name: config kibana config files
+  lineinfile:
+    path: "{{elk.APP_DIR}}/kibana/config/kibana.yml"
+    regexp: "^{{item.key}}"
+    line: "{{item.key}}: {{item.value}}"
+  with_items:
+      - "{{kibana_config}}"
+
+
+- name: chown kibana directory
+  file:
+    path: "{{elk.APP_DIR}}/kibana"
+    state: directory
+    recurse: yes
+    mode: 0755
+
+
+- name: start  kibana service
+  shell: |
+    set -m;./bin/kibana &
+  args:
+    chdir: "{{elk.APP_DIR}}/kibana"
+

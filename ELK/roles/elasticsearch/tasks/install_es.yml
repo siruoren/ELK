@@ -1,0 +1,82 @@
+---
+- name: stop elasticsearch service
+  shell: |
+    ps -ef|grep elasticsearch  |grep -v grep|awk '{print $2}'|xargs kill -9
+  ignore_errors: true
+
+- name: rm elasticsearch directory
+  file:
+    path: "{{item}}"
+    state: absent
+  with_items:
+     - "{{elk.APP_DIR}}/elasticsearch"
+     - "{{elk.APP_DIR}}/elasticsearch-{{elk.version}}.tar.gz"
+
+- name: download elasticsearch package
+  shell: |
+    wget {{elasticsearch_url}}/elasticsearch-{{elk.version}}.tar.gz
+  args:
+    chdir: "{{elk.APP_DIR}}/"
+
+
+- name: unarchive elasticsearch package
+  unarchive:
+    src: "{{elk.APP_DIR}}/elasticsearch-{{elk.version}}.tar.gz"
+    dest: "{{elk.APP_DIR}}/"
+    remote_src: yes
+    mode: 0755
+
+- name: rename elasticsearch directory
+  shell: |
+    mv elasticsearch-{{elk.version}}  elasticsearch
+  args:
+    chdir: "{{elk.APP_DIR}}/"
+
+
+
+- name: config elasticsearch config files
+  lineinfile:
+    path: "{{elk.APP_DIR}}/elasticsearch/config/elasticsearch.yml"
+    insertbefore: "discovery.zen.ping.unicast.hosts"
+    regexp: "^{{item.key}}"
+    line: "{{item.key}}: {{item.value}}"
+  with_items:
+      - "{{es_config}}"
+
+
+- name: config elk cluster config block
+  blockinfile:
+    path: "{{elk.APP_DIR}}/elasticsearch/config/elasticsearch.yml"
+    marker: "# {mark} elk-cluster BLOCK"
+    block: |
+      discovery.zen.ping.unicast.hosts: [
+
+
+      ]
+
+
+
+- name: update elk cluster config 
+  lineinfile:
+    path: "{{elk.APP_DIR}}/elasticsearch/config/elasticsearch.yml"
+    insertafter: "^discovery.zen.ping.unicast.hosts"
+    line: |
+      "{{item}}:9300",
+  with_items:
+     - "{{groups['elasticsearch']}}"
+
+
+- name: chown elasticsearch {{manager_user}}
+  file:
+    path: "{{elk.APP_DIR}}/elasticsearch"
+    state: directory
+    recurse: yes
+    mode: 0755
+
+
+- name: start elasticsearch
+  shell: |
+    set -m;./bin/elasticsearch -d &
+  args:
+    chdir: "{{elk.APP_DIR}}/elasticsearch"
+

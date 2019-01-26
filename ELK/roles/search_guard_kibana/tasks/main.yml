@@ -1,0 +1,5 @@
+---
+- import_tasks: config_sg_kibana.yml
+  when: inventory_hostname in groups['kibana']
+  become: yes
+  become_user: "{{manager_user}}"

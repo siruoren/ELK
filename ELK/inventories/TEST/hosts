@@ -1,0 +1,11 @@
+[elasticsearch]
+10.10.10.101  ansible_ssh_user=root  ansible_ssh_pass=password
+
+[kibana]
+10.10.10.101  ansible_ssh_user=root  ansible_ssh_pass=password
+
+[logstash]
+10.10.10.101  ansible_ssh_user=root  ansible_ssh_pass=password
+
+[filebeat]
+10.10.10.101  ansible_ssh_user=root  ansible_ssh_pass=password

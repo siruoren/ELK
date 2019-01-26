@@ -1,0 +1,18 @@
+---
+- name: stop elasticsearch service
+  shell: |
+    ps -ef |grep elasticsearch |grep -v grep |awk '{print $2}'|xargs kill -9
+  ignore_errors: true
+
+- name: check elasticsearch directory
+  stat:
+    path: "{{jms.APP_DIR}}/elasticsearch"
+  register: es_dir
+
+
+- name: backup elasticsearch directory
+  shell: |
+    mv elasticsearch elasticsearch_$(date +'%Y-%m-%d_%H:%M').bak
+  args:
+    chdir: "{{elk.APP_DIR}}/"
+  when: es_dir.stat.exists

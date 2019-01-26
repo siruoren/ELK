@@ -1,0 +1,65 @@
+---
+elk:
+   version: 6.5.4
+   APP_DIR: /opt
+
+
+manager_group: elk
+manager_user: elk
+elasticsearch_url: 'https://artifacts.elastic.co/downloads/elasticsearch'
+kibana_url: 'https://artifacts.elastic.co/downloads/kibana'
+logstash_url: 'https://artifacts.elastic.co/downloads/logstash'
+filebeat_url: 'https://artifacts.elastic.co/downloads/beats/filebeat'
+
+search_guard_kibana_url: 'https://search.maven.org/remotecontent?filepath=com/floragunn/search-guard-kibana-plugin/6.5.4-17/search-guard-kibana-plugin-6.5.4-17.zip'
+search_guard_es_url: 'https://search.maven.org/remotecontent?filepath=com/floragunn/search-guard-6/6.5.4-24.0/search-guard-6-6.5.4-24.0.zip'
+
+
+es_config:
+   -  {key: 'cluster.name', value: elasticsearch}
+   -  {key: 'node.name', value: "{{inventory_hostname}}"}
+   -  {key: 'node.master', value: true}
+   -  {key: 'node.data', value: true}
+   -  {key: 'network.bind_host', value: '0.0.0.0'}
+   -  {key: 'network.publish_host', value: "{{inventory_hostname}}"}
+   -  {key: 'network.host', value: "{{inventory_hostname}}"}
+   -  {key: 'transport.tcp.port', value: 9300}
+   -  {key: 'transport.tcp.compress', value: true}
+   -  {key: 'http.port', value: 9200}
+   -  {key: 'http.max_content_length', value: 100mb}
+   -  {key: 'http.enabled', value: true}   
+
+
+kibana_config:
+   -  {key: 'server.port', value: 5600}
+   -  {key: 'server.host', value: "{{inventory_hostname}}"}
+   -  {key: 'server.name', value: kibana}
+   -  {key: 'kibana.index', value: '".kibana"'}
+   -  {key: 'elasticsearch.url', value: "http://{{groups['elasticsearch'][0]}}:9200"}
+
+
+
+logstash_config:
+   -  {key: 'node.name', value: "{{inventory_hostname}}"}
+   -  {key: 'pipeline.id', value: main}
+   -  {key: 'pipeline.workers', value: 2}
+   -  {key: 'pipeline.batch.size', value: 125}
+   -  {key: 'pipeline.batch.delay', value: 50}
+   -  {key: 'path.config', value: '"./config/*.conf"'}
+
+
+kibana_sg_config:
+   -  {key: 'elasticsearch.url', value: "https://{{groups['elasticsearch'][0]}}:9200"}
+   -  {key: 'elasticsearch.username', value: '"kibanaserver"'}
+   -  {key: 'elasticsearch.password', value: '"kibanaserver"'}
+   -  {key: 'xpack.security.enabled', value: false}
+   -  {key: 'elasticsearch.ssl.verificationMode', value: none}
+
+
+
+
+
+
+
+
+

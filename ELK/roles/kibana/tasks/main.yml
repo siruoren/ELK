@@ -1,0 +1,5 @@
+---
+- import_tasks: install_kibana.yml
+  become: yes
+  become_user: "{{manager_user}}"
+  when: inventory_hostname in groups['kibana']

@@ -1,0 +1,65 @@
+---
+- name: add group {{manager_group}}
+  group:
+    name: "{{manager_group}}"
+    state: present
+
+- name: add user {{manager_user}}
+  user:
+    name: "{{manager_user}}"
+    group: "{{manager_group}}"
+    state: present
+
+- name: create  ELK APP_DIR directory
+  file:
+    path: "{{elk.APP_DIR}}"
+    owner: "{{manager_user}}"
+    group: "{{manager_group}}"
+    state: directory
+    mode: 0755
+
+- name: stop selinux status
+  shell:
+    setenforce 0
+  ignore_errors: yes
+
+- name: disable selinux
+  selinux:
+    state: disabled
+
+
+- name: disable firewalld
+  systemd:
+    name: firewalld
+    enabled: no
+    state: stopped
+  ignore_errors: True
+
+- name: install basic progrems
+  yum:
+    name: "{{item}}"
+    state: present
+  with_items:
+    - java
+    - wget
+    - openssl-devel
+    - epel-release
+    - git
+
+
+#设置系统的socket连接的处理限制
+- name: tune kernal parameters
+  sysctl:
+    name: vm.max_map_count
+    value: 655360
+    state: present
+
+- name: config security limit 
+  pam_limits:
+    domain: '*'
+    limit_type: "{{item}}"
+    limit_item: nofile
+    value: 65536
+  with_items:
+       - soft
+       - hard

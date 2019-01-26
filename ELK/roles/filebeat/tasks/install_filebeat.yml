@@ -1,0 +1,68 @@
+---
+- name: stop filebeat service
+  shell: |
+    ps -ef |grep filebeat|grep -v grep|awk '{print $2}'|xargs kill -9
+  ignore_errors: true
+
+- name: rm filebeat directory
+  file:
+    path: "{{item}}"
+    state: absent
+  with_items: 
+      - "{{elk.APP_DIR}}/filebeat"
+      - "{{elk.APP_DIR}}/filebeat-{{elk.version}}-linux-x86_64.tar.gz"
+
+- name: download filebeat package
+  shell:
+    "wget {{filebeat_url}}/filebeat-{{elk.version}}-linux-x86_64.tar.gz"
+  args:
+    chdir: "{{elk.APP_DIR}}/"
+
+
+- name: unarchive filebeat package
+  unarchive:
+    src: "{{elk.APP_DIR}}/filebeat-{{elk.version}}-linux-x86_64.tar.gz"
+    dest: "{{elk.APP_DIR}}/"
+    remote_src: yes
+    mode: 0755
+
+- name: rename filebeat directory
+  shell: |
+    mv filebeat-{{elk.version}}-linux-x86_64   filebeat
+  args:
+    chdir: "{{elk.APP_DIR}}/"
+
+
+- name: config filebeat config files
+  lineinfile:
+    path: "{{elk.APP_DIR}}/filebeat/filebeat.yml"
+    regexp: "{{item}}"
+    line: "# {{item}}"
+  with_items:
+      - 'hosts\: \["localhost\:9200"\]'
+      - 'output.elasticsearch'
+
+- name: config filebeat config output
+  blockinfile:
+    path: "{{elk.APP_DIR}}/filebeat/filebeat.yml"
+    block: |
+      output.logstash:
+      # The Logstash hosts
+        hosts: ["{{groups['elasticsearch'][0]}}:5044"]
+
+
+
+- name: chown filebeat directory
+  file:
+    path: "{{elk.APP_DIR}}/filebeat"
+    state: directory
+    recurse: yes
+    mode: 0755
+
+
+
+- name: start  filebeat service
+  shell: |
+    set -m;nohup ./filebeat run &
+  args:
+    chdir: "{{elk.APP_DIR}}/filebeat"

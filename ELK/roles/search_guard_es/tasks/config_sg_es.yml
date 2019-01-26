@@ -1,0 +1,131 @@
+---
+- name: install search_guard es plugins
+  block: 
+
+    - name: clean  search_guard  package
+      shell: |
+         find  -maxdepth 1 -name "search-guard*.zip" -exec rm -rf {} +
+      args:
+        chdir: /tmp/
+
+    - name: download  search_guard es  plugins
+      shell:
+        "wget -O search-guard-es.zip  {{item}}"
+      args:
+        chdir: "/tmp/"
+      with_items:
+          - "{{search_guard_es_url}}"
+    
+ 
+    - name: Disable shard allocation
+      shell: |
+        curl -Ss -XPUT 'http://localhost:9200/_cluster/settings?pretty' -H 'Content-Type: application/json' -d\
+        '{\
+           "persistent": {\
+             "cluster.routing.allocation.enable": "none"\
+            }\
+         }'
+      ignore_errors: true
+      
+    - name: stop elasticsearch service
+      shell: |
+        ps -ef|grep elasticsearch |grep -v grep|awk '{print $2}'|xargs kill -9
+      ignore_errors: true
+
+    
+    - name: copy search-guard-certificates
+      copy:
+        src: /tmp/search-guard-certificates
+        dest: "{{elk.APP_DIR}}/elasticsearch/config/"
+    
+    - name: check elasticsearch-plugin list
+      shell: |
+        ./bin/elasticsearch-plugin list |grep search-guard  
+      args:
+          chdir: "{{elk.APP_DIR}}/elasticsearch/"
+      register: sg_check
+      ignore_errors: true
+
+
+    - name: remove search guard es plugins
+      shell: |
+          ./bin/elasticsearch-plugin remove {{sg_check.stdout}}
+      ignore_errors: true
+      args:
+          chdir: "{{elk.APP_DIR}}/elasticsearch"
+      when: sg_check.rc == 0
+
+
+    
+    - name: install search guard es plugins
+      shell: |
+         ./bin/elasticsearch-plugin install -b file:///tmp/search-guard-es.zip
+      args:
+         chdir: "{{elk.APP_DIR}}/elasticsearch"
+    
+    
+    - name: config elasticsearch search guard
+      blockinfile: 
+        path: "{{elk.APP_DIR}}/elasticsearch/config/elasticsearch.yml"
+        marker: "# {mark} search-guard es BLOCK"
+        block: |
+          searchguard.ssl.transport.pemcert_filepath: search-guard-certificates/node-certificates/CN=IP-{{inventory_hostname}}.crtfull.pem
+          searchguard.ssl.transport.pemkey_filepath: search-guard-certificates/node-certificates/CN=IP-{{inventory_hostname}}.key.pem
+          searchguard.ssl.transport.pemkey_password: {{keystore_pwd.stdout}}
+          searchguard.ssl.transport.pemtrustedcas_filepath: search-guard-certificates/chain-ca.pem
+          searchguard.ssl.transport.enforce_hostname_verification: false
+          searchguard.ssl.http.enabled: true
+          searchguard.ssl.http.pemcert_filepath: search-guard-certificates/node-certificates/CN=IP-{{inventory_hostname}}.crtfull.pem
+          searchguard.ssl.http.pemkey_filepath: search-guard-certificates/node-certificates/CN=IP-{{inventory_hostname}}.key.pem
+          searchguard.ssl.http.pemkey_password: {{keystore_pwd.stdout}}
+          searchguard.ssl.http.pemtrustedcas_filepath: search-guard-certificates/chain-ca.pem
+    
+          searchguard.allow_unsafe_democertificates: true
+          searchguard.allow_default_init_sgindex: true
+          searchguard.authcz.admin_dn:
+            - CN=sgadmin
+    
+          searchguard.audit.type: internal_elasticsearch
+          searchguard.enable_snapshot_restore_privilege: true
+          searchguard.check_snapshot_restore_write_privileges: true
+          searchguard.restapi.roles_enabled: ["sg_all_access"]
+          cluster.routing.allocation.disk.threshold_enabled: false
+          discovery.zen.minimum_master_nodes: 1
+          node.max_local_storage_nodes: 3
+          xpack.security.enabled: false
+          searchguard.enterprise_modules_enabled: false
+    
+    
+    
+    - name: start elasticsearch
+      shell: |
+        set -m;./bin/elasticsearch -d &
+      args:
+        chdir: "{{elk.APP_DIR}}/elasticsearch"
+    
+    - name: get init search guard order
+      shell: |
+        cat README.txt |grep './sgadmin.sh -cacert root-ca.pem'
+      args:
+        chdir: /tmp/search-guard-certificates/
+      register: init_sg
+        
+    - name: init search guard
+      shell: |
+        cp root-ca.pem chain-ca.pem client-certificates/CN\=sgadmin.key.pem client-certificates/CN\=sgadmin.crtfull.pem ../../plugins/search-guard-6/tools ;
+        cd ../../plugins/search-guard-6/tools;
+        chmod 755 sgadmin.sh;
+        {{init_sg.stdout}};
+      args:
+        chdir: "{{elk.APP_DIR}}/elasticsearch/config/search-guard-certificates/"
+
+
+    - name: enable shard allocation
+      shell: |
+        curl  --insecure  -Ss -XPUT 'https://admin:admin@localhost:9200/_cluster/settings?pretty' -H 'Content-Type: application/json' -d\
+        '{\
+          "persistent": {\
+            "cluster.routing.allocation.enable": "all"\
+          }\
+        }'
+

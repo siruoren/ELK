@@ -1,0 +1,28 @@
+---
+- name: config logstash certificates 
+  block:
+    - name: stop logstash service
+      shell: |
+        ps -ef |grep logstash|grep -v grep|awk '{print $2}'|xargs kill -9
+      ignore_errors: true
+
+    - name: copy search-guard-certificates keystore
+      copy:
+        src: "{{item}}"
+        dest: "{{elk.APP_DIR}}/logstash/config/"
+      with_lines:
+          - find  /tmp/search-guard-certificates/node-certificates/ -maxdepth 1 -type f -name "*keystore.jks"
+
+
+
+    - name: copy new logstash rule sample
+      template:
+        src: logstash-sample.j2
+        dest: "{{elk.APP_DIR}}/logstash/config/logstash-sample.conf"
+
+    - name: start  logstash service
+      shell: |
+        set -m;nohup ./bin/logstash &
+      args:
+        chdir: "{{elk.APP_DIR}}/logstash"
+

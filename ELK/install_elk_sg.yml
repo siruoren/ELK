@@ -1,0 +1,13 @@
+- hosts: all
+  vars:
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+
+  roles:
+    - prepare
+    - elasticsearch
+    - kibana
+    - logstash
+    - filebeat
+    - search_guard_es
+    - search_guard_kibana
+    - search_guard_logstash
