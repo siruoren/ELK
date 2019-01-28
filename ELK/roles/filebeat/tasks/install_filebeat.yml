@@ -48,7 +48,7 @@
     block: |
       output.logstash:
       # The Logstash hosts
-        hosts: ["{{groups['elasticsearch'][0]}}:5044"]
+        hosts: ["{{groups['logstash'][0]}}:5044"]
 
 
 
